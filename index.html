@@ -1,0 +1,675 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#0b1020" />
+  <title>双人小游戏：Pong 乒乓对战</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --fg: #e8eefc;
+      --muted: rgba(232, 238, 252, 0.65);
+      --accent: #7aa2ff;
+      --danger: #ff7a7a;
+      --card: rgba(255,255,255,0.06);
+      --border: rgba(255,255,255,0.12);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: radial-gradient(900px 450px at 50% 10%, rgba(122,162,255,0.25), transparent 60%), var(--bg);
+      color: var(--fg);
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+    }
+    .wrap {
+      width: min(980px, 100%);
+      display: grid;
+      gap: 14px;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: var(--card);
+      box-shadow: 0 12px 30px rgba(0,0,0,0.35);
+    }
+    .title {
+      display: grid;
+      gap: 4px;
+    }
+    .title h1 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: 0.3px;
+    }
+    .title p {
+      margin: 0;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    button {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.08);
+      color: var(--fg);
+      padding: 10px 12px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform .08s ease, background .15s ease;
+      font-weight: 600;
+      font-size: 13px;
+    }
+    button:hover { background: rgba(255,255,255,0.12); }
+    button:active { transform: translateY(1px); }
+    button.primary { border-color: rgba(122,162,255,0.55); background: rgba(122,162,255,0.14); }
+    button.primary:hover { background: rgba(122,162,255,0.20); }
+
+    .board {
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
+      box-shadow: 0 16px 40px rgba(0,0,0,0.42);
+      overflow: hidden;
+      position: relative;
+    }
+
+    canvas {
+      width: 100%;
+      height: auto;
+      display: block;
+      touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .hud {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      border-top: 1px solid var(--border);
+      background: rgba(0,0,0,0.15);
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .hud b { color: var(--fg); }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: rgba(255,255,255,0.06);
+      color: var(--fg);
+      font-weight: 700;
+    }
+
+    .hint {
+      display: grid;
+      gap: 6px;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: var(--card);
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .hint code {
+      background: rgba(255,255,255,0.08);
+      padding: 2px 6px;
+      border-radius: 8px;
+      color: var(--fg);
+    }
+
+    .toast {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      pointer-events: none;
+    }
+    .toast .card {
+      pointer-events: auto;
+      width: min(520px, calc(100% - 24px));
+      padding: 16px;
+      border-radius: 18px;
+      border: 1px solid var(--border);
+      background: rgba(12, 16, 34, 0.78);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 20px 70px rgba(0,0,0,0.55);
+      display: grid;
+      gap: 10px;
+    }
+    .toast h2 {
+      margin: 0;
+      font-size: 16px;
+    }
+    .toast p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .toast .row { display: flex; gap: 10px; flex-wrap: wrap; }
+
+    .kbd {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 22px;
+      padding: 2px 6px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.06);
+      color: var(--fg);
+      font-weight: 800;
+      font-size: 11px;
+    }
+
+    .danger { color: var(--danger); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="title">
+        <h1>双人小游戏：Pong 乒乓对战</h1>
+        <p>玩家1：<span class="kbd">W</span>/<span class="kbd">S</span>；玩家2：<span class="kbd">↑</span>/<span class="kbd">↓</span>。<b>触屏</b>：左半屏拖动=玩家1，右半屏拖动=玩家2。先到 <b>7</b> 分获胜。</p>
+      </div>
+      <div class="controls">
+        <button id="btnStart" class="primary">开始 / 继续 (Space)</button>
+        <button id="btnReset">重置 (R)</button>
+        <button id="btnMute">音效：开</button>
+      </div>
+    </header>
+
+    <div class="board" aria-label="game-board">
+      <canvas id="c" width="900" height="520"></canvas>
+      <div class="toast" id="toast" style="display:none;">
+        <div class="card">
+          <h2 id="toastTitle">暂停</h2>
+          <p id="toastDesc">按 <span class="kbd">Space</span> 开始/继续。按 <span class="kbd">R</span> 重置。</p>
+          <div class="row">
+            <button id="btnToastStart" class="primary">开始 / 继续</button>
+            <button id="btnToastReset">重置</button>
+          </div>
+        </div>
+      </div>
+      <div class="hud">
+        <div>玩家1（左）：<b id="s1">0</b></div>
+        <div class="pill" id="status">准备就绪</div>
+        <div style="text-align:right">玩家2（右）：<b id="s2">0</b></div>
+      </div>
+    </div>
+
+    <div class="hint">
+      <div><b>玩法小提示</b>：球每次碰到球拍会略微加速，并且根据击球位置改变反弹角度；你也可以用“轻点”来控制球的走向。</div>
+      <div>快捷键：<code>Space</code> 开始/暂停；<code>R</code> 重置；<code>M</code> 音效开关。</div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      const canvas = document.getElementById('c');
+      const ctx = canvas.getContext('2d');
+
+      const s1El = document.getElementById('s1');
+      const s2El = document.getElementById('s2');
+      const statusEl = document.getElementById('status');
+      const toast = document.getElementById('toast');
+      const toastTitle = document.getElementById('toastTitle');
+      const toastDesc = document.getElementById('toastDesc');
+
+      const btnStart = document.getElementById('btnStart');
+      const btnReset = document.getElementById('btnReset');
+      const btnMute = document.getElementById('btnMute');
+      const btnToastStart = document.getElementById('btnToastStart');
+      const btnToastReset = document.getElementById('btnToastReset');
+
+      // ---- Game constants ----
+      const W = canvas.width;
+      const H = canvas.height;
+      const midX = W / 2;
+
+      const PADDLE_W = 14;
+      const PADDLE_H = 110;
+      const PADDLE_MARGIN = 24;
+      const BALL_R = 9;
+
+      const WIN_SCORE = 7;
+
+      const MAX_BALL_SPEED = 950; // px/s
+      const MIN_BALL_SPEED = 430;
+      const SPEEDUP = 1.04;
+
+      // ---- Audio (simple, no external files) ----
+      let muted = false;
+      const audioCtx = (() => {
+        try { return new (window.AudioContext || window.webkitAudioContext)(); } catch { return null; }
+      })();
+
+      function beep(freq, duration = 0.05, type = 'sine', gain = 0.03) {
+        if (muted || !audioCtx) return;
+        const t0 = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        g.gain.value = gain;
+        osc.connect(g);
+        g.connect(audioCtx.destination);
+        osc.start(t0);
+        osc.stop(t0 + duration);
+      }
+
+      // ---- State ----
+      const keys = new Set();
+
+      // Touch support (iPad / mobile)
+      let touchYLeft = null;  // logical Y in game coords
+      let touchYRight = null;
+
+      function clientToGame(clientX, clientY) {
+        const rect = canvas.getBoundingClientRect();
+        const x = (clientX - rect.left) * (W / rect.width);
+        const y = (clientY - rect.top) * (H / rect.height);
+        return { x, y };
+      }
+
+      function updateTouches(touches) {
+        touchYLeft = null;
+        touchYRight = null;
+        for (const t of touches) {
+          const { x, y } = clientToGame(t.clientX, t.clientY);
+          if (x < W / 2) touchYLeft = y;
+          else touchYRight = y;
+        }
+      }
+
+      function onTouch(e) {
+        // Prevent page scroll/zoom while playing
+        e.preventDefault();
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume().catch(() => {});
+        }
+        updateTouches(e.touches);
+      }
+
+      // iOS Safari: use passive:false to allow preventDefault
+      canvas.addEventListener('touchstart', onTouch, { passive: false });
+      canvas.addEventListener('touchmove', onTouch, { passive: false });
+      canvas.addEventListener('touchend', (e) => { e.preventDefault(); updateTouches(e.touches); }, { passive: false });
+      canvas.addEventListener('touchcancel', (e) => { e.preventDefault(); updateTouches(e.touches); }, { passive: false });
+
+      // Tap the canvas to start/pause (handy on iPad)
+      canvas.addEventListener('click', () => {
+        setRunning(!running);
+      });
+      let running = false;
+      let lastTs = performance.now();
+
+      const left = {
+        x: PADDLE_MARGIN,
+        y: (H - PADDLE_H) / 2,
+        vy: 0,
+        score: 0,
+      };
+
+      const right = {
+        x: W - PADDLE_MARGIN - PADDLE_W,
+        y: (H - PADDLE_H) / 2,
+        vy: 0,
+        score: 0,
+      };
+
+      const ball = {
+        x: midX,
+        y: H / 2,
+        vx: 0,
+        vy: 0,
+        speed: MIN_BALL_SPEED,
+        lastHit: 0, // 1 left, 2 right
+      };
+
+      function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+      function resetBall(toward = 0) {
+        // toward: 0 random, 1 toward right, 2 toward left
+        ball.x = midX;
+        ball.y = H / 2;
+        ball.speed = MIN_BALL_SPEED;
+
+        const dir = (toward === 1) ? 1 : (toward === 2) ? -1 : (Math.random() < 0.5 ? -1 : 1);
+        const angle = (Math.random() * 0.6 - 0.3); // -0.3..0.3 rad
+
+        ball.vx = Math.cos(angle) * ball.speed * dir;
+        ball.vy = Math.sin(angle) * ball.speed;
+        ball.lastHit = 0;
+      }
+
+      function resetAll() {
+        left.y = (H - PADDLE_H) / 2;
+        right.y = (H - PADDLE_H) / 2;
+        left.score = 0;
+        right.score = 0;
+        s1El.textContent = String(left.score);
+        s2El.textContent = String(right.score);
+        statusEl.textContent = '准备就绪';
+        running = false;
+        setToast(true, '准备开始', '按 Space 开始；玩家1：W/S；玩家2：↑/↓。先到 7 分获胜。');
+        resetBall(0);
+      }
+
+      function setToast(show, title = '暂停', desc = '') {
+        toast.style.display = show ? 'grid' : 'none';
+        toastTitle.textContent = title;
+        toastDesc.innerHTML = desc || '按 <span class="kbd">Space</span> 开始/继续。按 <span class="kbd">R</span> 重置。';
+      }
+
+      function setRunning(v) {
+        running = v;
+        if (running) {
+          setToast(false);
+          statusEl.textContent = '进行中';
+          // Some browsers require user gesture to start AudioContext
+          if (audioCtx && audioCtx.state === 'suspended') {
+            audioCtx.resume().catch(() => {});
+          }
+          beep(540, 0.05, 'sine', 0.02);
+        } else {
+          statusEl.textContent = '暂停';
+          setToast(true, '暂停', '按 <span class="kbd">Space</span> 继续。按 <span class="kbd">R</span> 重置。');
+        }
+      }
+
+      // ---- Input ----
+      window.addEventListener('keydown', (e) => {
+        const k = e.key;
+        if (['ArrowUp','ArrowDown',' '].includes(k)) e.preventDefault();
+        keys.add(k);
+
+        if (k === ' ' || k === 'Spacebar') {
+          setRunning(!running);
+        } else if (k === 'r' || k === 'R') {
+          resetAll();
+        } else if (k === 'm' || k === 'M') {
+          muted = !muted;
+          btnMute.textContent = `音效：${muted ? '关' : '开'}`;
+          if (!muted) beep(660, 0.05, 'sine', 0.02);
+        }
+      });
+
+      window.addEventListener('keyup', (e) => {
+        keys.delete(e.key);
+      });
+
+      btnStart.addEventListener('click', () => setRunning(true));
+      btnReset.addEventListener('click', resetAll);
+      btnMute.addEventListener('click', () => {
+        muted = !muted;
+        btnMute.textContent = `音效：${muted ? '关' : '开'}`;
+        if (!muted) beep(660, 0.05, 'sine', 0.02);
+      });
+      btnToastStart.addEventListener('click', () => setRunning(true));
+      btnToastReset.addEventListener('click', resetAll);
+
+      // ---- Physics ----
+      function rectIntersectCircle(rx, ry, rw, rh, cx, cy, cr) {
+        const closestX = clamp(cx, rx, rx + rw);
+        const closestY = clamp(cy, ry, ry + rh);
+        const dx = cx - closestX;
+        const dy = cy - closestY;
+        return (dx*dx + dy*dy) <= cr*cr;
+      }
+
+      function paddleBounce(paddle, side /*1 left 2 right*/) {
+        // Determine hit position (-1..1) based on where ball hits the paddle
+        const pyCenter = paddle.y + PADDLE_H / 2;
+        const rel = clamp((ball.y - pyCenter) / (PADDLE_H / 2), -1, 1);
+
+        // Max bounce angle ~ 60 degrees
+        const maxAngle = Math.PI * 0.35; // ~63deg
+        const angle = rel * maxAngle;
+
+        // Speed up slightly
+        ball.speed = Math.min(MAX_BALL_SPEED, ball.speed * SPEEDUP);
+
+        const dir = side === 1 ? 1 : -1;
+        ball.vx = Math.cos(angle) * ball.speed * dir;
+        ball.vy = Math.sin(angle) * ball.speed;
+        ball.lastHit = side;
+
+        // Tiny nudge to avoid sticking
+        ball.x += dir * 2;
+
+        beep(760, 0.03, 'square', 0.02);
+      }
+
+      function step(dt) {
+        // paddles
+        const paddleSpeed = 620; // px/s
+
+        // left paddle: touch overrides keyboard
+        if (touchYLeft !== null) {
+          left.y = clamp(touchYLeft - PADDLE_H / 2, 10, H - 10 - PADDLE_H);
+        } else {
+          // left: W/S
+          let ldir = 0;
+          if (keys.has('w') || keys.has('W')) ldir -= 1;
+          if (keys.has('s') || keys.has('S')) ldir += 1;
+          left.y = clamp(left.y + ldir * paddleSpeed * dt, 10, H - 10 - PADDLE_H);
+        }
+
+        // right paddle: touch overrides keyboard
+        if (touchYRight !== null) {
+          right.y = clamp(touchYRight - PADDLE_H / 2, 10, H - 10 - PADDLE_H);
+        } else {
+          // right: arrows
+          let rdir = 0;
+          if (keys.has('ArrowUp')) rdir -= 1;
+          if (keys.has('ArrowDown')) rdir += 1;
+          right.y = clamp(right.y + rdir * paddleSpeed * dt, 10, H - 10 - PADDLE_H);
+        }
+
+        // ball
+        ball.x += ball.vx * dt;
+        ball.y += ball.vy * dt;
+
+        // top/bottom wall
+        if (ball.y - BALL_R <= 8) {
+          ball.y = 8 + BALL_R;
+          ball.vy *= -1;
+          beep(420, 0.03, 'sine', 0.018);
+        } else if (ball.y + BALL_R >= H - 8) {
+          ball.y = H - 8 - BALL_R;
+          ball.vy *= -1;
+          beep(420, 0.03, 'sine', 0.018);
+        }
+
+        // paddles collision
+        const lRect = { x: left.x, y: left.y, w: PADDLE_W, h: PADDLE_H };
+        const rRect = { x: right.x, y: right.y, w: PADDLE_W, h: PADDLE_H };
+
+        if (ball.vx < 0 && rectIntersectCircle(lRect.x, lRect.y, lRect.w, lRect.h, ball.x, ball.y, BALL_R)) {
+          paddleBounce(left, 1);
+        } else if (ball.vx > 0 && rectIntersectCircle(rRect.x, rRect.y, rRect.w, rRect.h, ball.x, ball.y, BALL_R)) {
+          paddleBounce(right, 2);
+        }
+
+        // score
+        if (ball.x + BALL_R < 0) {
+          // right scores
+          right.score += 1;
+          s2El.textContent = String(right.score);
+          beep(220, 0.08, 'triangle', 0.03);
+
+          if (right.score >= WIN_SCORE) {
+            endGame(2);
+          } else {
+            statusEl.textContent = '玩家2 得分！';
+            resetBall(2); // toward left
+            setRunning(false);
+            setToast(true, '玩家2 得分！', '按 <span class="kbd">Space</span> 继续下一球。');
+          }
+        } else if (ball.x - BALL_R > W) {
+          // left scores
+          left.score += 1;
+          s1El.textContent = String(left.score);
+          beep(220, 0.08, 'triangle', 0.03);
+
+          if (left.score >= WIN_SCORE) {
+            endGame(1);
+          } else {
+            statusEl.textContent = '玩家1 得分！';
+            resetBall(1); // toward right
+            setRunning(false);
+            setToast(true, '玩家1 得分！', '按 <span class="kbd">Space</span> 继续下一球。');
+          }
+        }
+      }
+
+      function endGame(winner) {
+        running = false;
+        const title = winner === 1 ? '🎉 玩家1 获胜！' : '🎉 玩家2 获胜！';
+        statusEl.textContent = '比赛结束';
+        // little victory beeps
+        beep(660, 0.06, 'sine', 0.03);
+        setTimeout(() => beep(880, 0.06, 'sine', 0.03), 90);
+        setTimeout(() => beep(990, 0.08, 'sine', 0.03), 180);
+        setToast(true, title, '按 <span class="kbd">R</span> 重置再来一局。');
+      }
+
+      // ---- Drawing ----
+      function draw() {
+        // background
+        ctx.clearRect(0, 0, W, H);
+
+        // subtle vignette
+        const g = ctx.createRadialGradient(midX, H/2, 40, midX, H/2, Math.max(W,H));
+        g.addColorStop(0, 'rgba(122,162,255,0.08)');
+        g.addColorStop(1, 'rgba(0,0,0,0.35)');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, W, H);
+
+        // playfield border
+        ctx.strokeStyle = 'rgba(255,255,255,0.16)';
+        ctx.lineWidth = 2;
+        roundRect(ctx, 8, 8, W - 16, H - 16, 16);
+        ctx.stroke();
+
+        // center dashed line
+        ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([10, 14]);
+        ctx.beginPath();
+        ctx.moveTo(midX, 24);
+        ctx.lineTo(midX, H - 24);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // paddles
+        ctx.fillStyle = 'rgba(232,238,252,0.88)';
+        roundRect(ctx, left.x, left.y, PADDLE_W, PADDLE_H, 10);
+        ctx.fill();
+
+        ctx.fillStyle = 'rgba(232,238,252,0.88)';
+        roundRect(ctx, right.x, right.y, PADDLE_W, PADDLE_H, 10);
+        ctx.fill();
+
+        // ball
+        const ballGrad = ctx.createRadialGradient(ball.x - 3, ball.y - 3, 2, ball.x, ball.y, BALL_R + 6);
+        ballGrad.addColorStop(0, 'rgba(255,255,255,0.98)');
+        ballGrad.addColorStop(1, 'rgba(122,162,255,0.65)');
+        ctx.fillStyle = ballGrad;
+        ctx.beginPath();
+        ctx.arc(ball.x, ball.y, BALL_R, 0, Math.PI * 2);
+        ctx.fill();
+
+        // tiny speed indicator
+        const sp = Math.round(ball.speed);
+        ctx.fillStyle = 'rgba(232,238,252,0.55)';
+        ctx.font = '12px ui-sans-serif, system-ui';
+        ctx.textAlign = 'center';
+        ctx.fillText(`速度 ${sp}`, midX, 26);
+      }
+
+      function roundRect(ctx, x, y, w, h, r) {
+        const rr = Math.min(r, w/2, h/2);
+        ctx.beginPath();
+        ctx.moveTo(x + rr, y);
+        ctx.arcTo(x + w, y, x + w, y + h, rr);
+        ctx.arcTo(x + w, y + h, x, y + h, rr);
+        ctx.arcTo(x, y + h, x, y, rr);
+        ctx.arcTo(x, y, x + w, y, rr);
+        ctx.closePath();
+      }
+
+      // ---- Main loop ----
+      function frame(ts) {
+        const dt = Math.min(0.033, (ts - lastTs) / 1000);
+        lastTs = ts;
+
+        if (running) step(dt);
+        draw();
+
+        requestAnimationFrame(frame);
+      }
+
+      // ---- Init ----
+      resetBall(0);
+      setToast(true, '准备开始', '按 <span class="kbd">Space</span> 开始；玩家1：<span class="kbd">W</span>/<span class="kbd">S</span>；玩家2：<span class="kbd">↑</span>/<span class="kbd">↓</span>。先到 7 分获胜。');
+      requestAnimationFrame(frame);
+
+      // Make sure the canvas looks crisp on HiDPI screens.
+      function fitDPR() {
+        const dpr = Math.max(1, Math.min(2.5, window.devicePixelRatio || 1));
+        // Keep logical size stable (CSS scales), but improve internal resolution.
+        const cssW = canvas.getBoundingClientRect().width;
+        const cssH = cssW * (H / W);
+        canvas.style.height = cssH + 'px';
+
+        const targetW = Math.round(W * dpr);
+        const targetH = Math.round(H * dpr);
+        if (canvas.width !== targetW || canvas.height !== targetH) {
+          canvas.width = targetW;
+          canvas.height = targetH;
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+      }
+
+      // The game logic uses the original W/H constants.
+      // We scale drawing using setTransform(dpr,...), so coordinates remain in logical pixels.
+      // Need to re-draw after resize.
+      window.addEventListener('resize', fitDPR);
+      // initial
+      // NOTE: calling after first layout so boundingClientRect works.
+      setTimeout(fitDPR, 0);
+
+      // expose tiny help in console
+      console.log('Pong ready. Controls: W/S (left), ArrowUp/ArrowDown (right), Space pause/start, R reset, M mute.');
+    })();
+  </script>
+</body>
+</html>
